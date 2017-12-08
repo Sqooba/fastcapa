@@ -169,7 +169,7 @@ static int transmit_worker(tx_worker_params *params)
     const unsigned int tx_burst_size = params->tx_burst_size;
     struct rte_ring *ring = params->input_ring;
     const int kafka_id = params->kafka_id;
-    const int kafka_partition = params->kafka_partition;
+    const int partitions_count = params->partitions_count;
 
     LOG_INFO(USER1, "Transmit worker started; core=%u, socket=%u \n", rte_lcore_id(), rte_socket_id());
     while (!quit_signal) {
@@ -182,7 +182,7 @@ static int transmit_worker(tx_worker_params *params)
             params->stats.in += nb_in;
 
             // prepare the packets to be sent to kafka
-            nb_out = kaf_send(pkts, nb_in, kafka_id, kafka_partition);
+            nb_out = kaf_partition_send(pkts, nb_in, kafka_id, partitions_count);
             params->stats.out += nb_out;
 
             // clean-up the packet buffer
@@ -238,7 +238,7 @@ int start_workers(
                 .tx_ring_size = p->tx_ring_size,
                 .input_ring = tx_rings[ring_id],
                 .kafka_id = tx_worker_id,
-                .kafka_partition = ring_id,
+                .partitions_count = 2,
                 .stats = {0}
             };
             rte_eal_remote_launch((lcore_function_t*) transmit_worker, &tx_params[tx_worker_id], lcore_id);

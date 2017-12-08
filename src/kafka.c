@@ -370,6 +370,10 @@ static uint64_t current_time(void)
     return tv.tv_sec * (uint64_t)1000000 + tv.tv_usec;
 }
 
+int batch_for_partition(struct rte_mbuf* pkts[], int pkt_count, rd_kafka_topic_t* kaf_topic, int partition) {
+
+}
+
 /**
  * Publish a set of packets to a kafka topic.
  */
@@ -402,6 +406,47 @@ int kaf_send(struct rte_mbuf* pkts[], int pkt_count, int conn_id, int partition)
 
     // hand all of the messages off to kafka
     pkts_sent = rd_kafka_produce_batch(kaf_topic, partition, 0, kaf_msgs, pkt_count);
+
+    // update stats
+    kaf_conn_stats[conn_id].in += pkt_count;
+    kaf_conn_stats[conn_id].drops += (pkt_count - pkts_sent);
+
+    return pkts_sent;
+}
+
+/**
+ * Publish a set of packets to a kafka topic, chosing the partition based on the modulo of the rss hash.
+ * Probably not so optimal in its current form ;) (lots of locking for :/)
+ */
+int kaf_partition_send(struct rte_mbuf* pkts[], int pkt_count, int conn_id, int partition_count)
+{
+    // unassigned partition
+    int partition = RD_KAFKA_PARTITION_UA;
+    int i;
+    int msg_status;
+    int pkts_sent = 0;
+    rd_kafka_message_t kaf_msgs[pkt_count];
+
+    // find the topic connection based on the conn_id
+    rd_kafka_topic_t* kaf_topic = kaf_top_h[conn_id];
+
+    // current time in epoch microseconds from (big-endian aka network byte order)
+    // is added as a message key before being sent to kafka
+    kaf_keys[conn_id] = htobe64(current_time());
+    // create the batch message for kafka
+    for (i = 0; i < pkt_count; i++) {
+        msg_status = rd_kafka_produce(
+                kaf_topic,
+                pkts[i]->hash.rss % partition_count, // determine the partition based on the hash.
+                0, // flags
+                rte_ctrlmbuf_data(pkts[i]),
+                rte_ctrlmbuf_len(pkts[i]),
+                (void*) &kaf_keys[conn_id],
+                sizeof(uint64_t));
+        if(msg_status == 0) {
+            pkts_sent++;
+        }
+    }
 
     // update stats
     kaf_conn_stats[conn_id].in += pkt_count;

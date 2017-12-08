@@ -49,6 +49,12 @@ int kaf_send(
     int num_to_send,
     int conn_id);
 
+int kaf_partition_send(
+        struct rte_mbuf* data[],
+        int num_to_send,
+        int conn_id,
+        int partitions_count);
+
 /*
  * Executes polling across all of the kafka client connections.  Ensures that any queued
  * callbacks are served.

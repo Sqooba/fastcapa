@@ -157,7 +157,8 @@ typedef struct {
     /* identifies the kafka client connection used by the worker */
     int kafka_id;
 
-    int kafka_partition;
+    /* How many partitions for the kafka topic */
+    int partitions_count;
 
     /* worker metrics */
     app_stats stats;
