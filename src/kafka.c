@@ -370,17 +370,13 @@ static uint64_t current_time(void)
     return tv.tv_sec * (uint64_t)1000000 + tv.tv_usec;
 }
 
-int batch_for_partition(struct rte_mbuf* pkts[], int pkt_count, rd_kafka_topic_t* kaf_topic, int partition) {
-
-}
-
 /**
  * Publish a set of packets to a kafka topic.
  */
-int kaf_send(struct rte_mbuf* pkts[], int pkt_count, int conn_id, int partition)
+int kaf_send(struct rte_mbuf* pkts[], int pkt_count, int conn_id)
 {
     // unassigned partition
-    //int partition = RD_KAFKA_PARTITION_UA;
+    int partition = RD_KAFKA_PARTITION_UA;
     int i;
     int pkts_sent = 0;
     rd_kafka_message_t kaf_msgs[pkt_count];
@@ -420,12 +416,9 @@ int kaf_send(struct rte_mbuf* pkts[], int pkt_count, int conn_id, int partition)
  */
 int kaf_partition_send(struct rte_mbuf* pkts[], int pkt_count, int conn_id, int partition_count)
 {
-    // unassigned partition
-    int partition = RD_KAFKA_PARTITION_UA;
     int i;
     int msg_status;
     int pkts_sent = 0;
-    rd_kafka_message_t kaf_msgs[pkt_count];
 
     // find the topic connection based on the conn_id
     rd_kafka_topic_t* kaf_topic = kaf_top_h[conn_id];
@@ -435,6 +428,7 @@ int kaf_partition_send(struct rte_mbuf* pkts[], int pkt_count, int conn_id, int 
     kaf_keys[conn_id] = htobe64(current_time());
     // create the batch message for kafka
     for (i = 0; i < pkt_count; i++) {
+	//printf("Hash: %d\n", PKT_RX_RSS_HASH(pkts[i]));
         msg_status = rd_kafka_produce(
                 kaf_topic,
                 pkts[i]->hash.rss % partition_count, // determine the partition based on the hash.
@@ -442,7 +436,8 @@ int kaf_partition_send(struct rte_mbuf* pkts[], int pkt_count, int conn_id, int 
                 rte_ctrlmbuf_data(pkts[i]),
                 rte_ctrlmbuf_len(pkts[i]),
                 (void*) &kaf_keys[conn_id],
-                sizeof(uint64_t));
+                sizeof(uint64_t),
+		kaf_opaque);
         if(msg_status == 0) {
             pkts_sent++;
         }
@@ -454,3 +449,4 @@ int kaf_partition_send(struct rte_mbuf* pkts[], int pkt_count, int conn_id, int 
 
     return pkts_sent;
 }
+

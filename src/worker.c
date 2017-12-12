@@ -238,7 +238,7 @@ int start_workers(
                 .tx_ring_size = p->tx_ring_size,
                 .input_ring = tx_rings[ring_id],
                 .kafka_id = tx_worker_id,
-                .partitions_count = 2,
+                .partitions_count = 16,
                 .stats = {0}
             };
             rte_eal_remote_launch((lcore_function_t*) transmit_worker, &tx_params[tx_worker_id], lcore_id);

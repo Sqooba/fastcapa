@@ -27,6 +27,7 @@
 #include <librdkafka/rdkafka.h>
 #include <rte_common.h>
 #include <rte_mbuf.h>
+#include <rte_thash.h>
 #include "args.h"
 #include "types.h"
 
